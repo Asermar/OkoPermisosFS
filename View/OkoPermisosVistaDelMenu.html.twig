@@ -1,0 +1,210 @@
+{#
+    Vista previa del menú de un usuario, con el aspecto del menú real.
+
+    ## Es una pestaña del panel, no una página
+
+    Es la pestaña `VistaDelMenu` de `AdminPermisos`: un fragmento que el panel incluye, así que no
+    extiende ninguna maestra —la maestra, con el menú y el tema, ya la pone el panel—. El formulario
+    lleva `activetab` para volver a esta pestaña con el usuario elegido.
+
+    ## Las clases son las del menú de verdad, no unas parecidas
+
+    El primer intento usó botones y `list-group`, y no se parecía a FacturaScripts. Lo que pinta el menú
+    real es `Core/View/Macro/Menu.html.twig` (macro `showMenu`), y su aspecto sale de tres cosas que aquí
+    se copian literales:
+
+    - la barra es `navbar navbar-expand navbar-dark bg-primary`, con `nav-item dropdown` y
+      `nav-link dropdown-toggle` por menú;
+    - el panel es un `dropdown-menu` con `dropdown-item`, y cada página lleva **su propio icono** de
+      `pages.icon` con `fa-fw me-1`, que es lo que más se echaba en falta;
+    - el submenú va con `dropdown-submenu` y el icono `fa-folder-open`, y esa clase la define
+      `Core/Assets/CSS/custom.css` —no es de Bootstrap—, así que llega ya estilada por heredar la maestra.
+
+    No se reutiliza la macro del core porque recibe `MenuItem`, cuyo `title` se escapa: no hay por dónde
+    meter las etiquetas de permisos ni pintar atenuada una entrada que el usuario no ve, que es todo el
+    objeto de esta pantalla.
+
+    ## Los desplegables quedan FIJADOS, y eso sí se aparta del menú real
+
+    Un desplegable de Bootstrap cierra al abrir el siguiente, y aquí la pregunta habitual es comparar dos
+    menús. Así que el panel se abre con `collapse` en lugar de `dropdown`, y se queda. Es la única
+    diferencia deliberada de comportamiento: el aspecto es el mismo, pero caben varios a la vez —en
+    rejilla, no apilados, que es lo que obligaba a bajar la página.
+
+    ## Los puntos de extensión se resuelven una vez, arriba
+
+    `OkoPermisosVistaDelMenu_pagina` sale en cada página del árbol y `OkoPermisosVistaDelMenu_especial`
+    en cada permiso especial (ver «Puntos de extensión» en el README). `getIncludeViews` recorre el disco
+    de todos los plugins activos en cada llamada y el árbol pinta también lo denegado, así que llamarla
+    por entrada serían cientos de recorridos por petición: se llama una vez y la lista viaja a la macro.
+#}
+    {% set nick = fsc.nickElegido %}
+    {% set arbol = fsc.arbol %}
+    {%~ set huecosPagina = getIncludeViews('OkoPermisosVistaDelMenu', 'pagina') %}
+    {%~ set huecosEspecial = getIncludeViews('OkoPermisosVistaDelMenu', 'especial') %}
+
+    <div class="container-fluid">
+        <div class="card shadow mb-3">
+            <div class="card-body">
+                <form method="get" action="{{ asset('AdminPermisos') }}">
+                    <input type="hidden" name="activetab" value="VistaDelMenu"/>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label mb-1">{{ trans('user') }}</label>
+                            <select name="nick" class="form-select" onchange="this.form.submit();">
+                                <option value="">------</option>
+                                {% for u in fsc.usuarios %}
+                                    <option value="{{ u.code }}"{{ u.code == nick ? ' selected' : '' }}>{{ u.description }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            {% if nick and fsc.esAdmin %}
+                                {# Un admin lo ve todo: el árbol de abajo es lo que le quedaría SIN el flag. #}
+                                <div class="alert alert-warning mb-0 py-2">
+                                    <i class="fa-solid fa-triangle-exclamation fa-fw"></i>
+                                    {{ trans('okopermisos-aviso-admin') }}
+                                </div>
+                            {% elseif nick %}
+                                <a href="{{ asset('AdminPermisos') }}?activetab=ListPermisoEfectivo" class="btn btn-outline-secondary">
+                                    <i class="fa-solid fa-table fa-fw"></i> {{ trans('okopermisos-permisos') }}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if nick is empty %}
+        <div class="container-fluid">
+            <div class="alert alert-info">{{ trans('okopermisos-elige-usuario') }}</div>
+        </div>
+    {% else %}
+        {# La barra: las clases del navbar real, para que se lea como el menú de FacturaScripts. #}
+        <nav class="navbar navbar-expand navbar-dark bg-primary d-print-none">
+            <div class="container-fluid">
+                <ul class="navbar-nav pt-1 flex-wrap">
+                    {% for codigo, menu in arbol %}
+                        <li class="fs-menu-item nav-item">
+                            <a class="nav-link{{ menu.tiene == 0 ? ' text-white-50' : '' }}" href="#"
+                               data-bs-toggle="collapse" data-bs-target="#menu-{{ loop.index }}"
+                               aria-expanded="false" title="{{ codigo }}">
+                                {{ menu.titulo }}
+                                <span class="badge {{ menu.tiene == 0 ? 'bg-secondary' : (menu.tiene == menu.total ? 'bg-success' : 'bg-light text-dark') }}">
+                                    {{ menu.tiene }}/{{ menu.total }}
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </nav>
+
+        <div class="container-fluid mt-2">
+            <div class="row row-cols-1 row-cols-lg-2 row-cols-xxl-3 g-2">
+                {% for codigo, menu in arbol %}
+                    {# el `collapse` va en la COLUMNA: así la cerrada sale del flujo de la rejilla #}
+                    <div class="col collapse" id="menu-{{ loop.index }}">
+                        {# `dropdown-menu` + `show` es el panel del menú real, aquí fijado en su sitio #}
+                        <div class="dropdown-menu show position-static float-none w-100 h-100 shadow-sm">
+                            <h6 class="dropdown-header">
+                                {{ menu.titulo }}
+                                <span class="float-end fw-normal">{{ menu.tiene }}/{{ menu.total }}</span>
+                            </h6>
+                            <div class="dropdown-divider"></div>
+                            {% for hijo in menu.hijos %}
+                                {% if hijo.tipo == 'submenu' %}
+                                    <h6 class="dropdown-header">
+                                        <i class="fa-solid fa-folder-open fa-fw me-1"></i>{{ hijo.titulo }}
+                                    </h6>
+                                    {% for pagina in hijo.paginas %}
+                                        {{ _self.entrada(pagina, true, nick, huecosPagina) }}
+                                    {% endfor %}
+                                {% else %}
+                                    {{ _self.entrada(hijo.pagina, false, nick, huecosPagina) }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {#
+                El nodo «Permisos especiales»: sus páginas no están en el menú real (`showonmenu = 0`), así
+                que van aparte, en el mismo panel fijado que los menús.
+            #}
+            {% if fsc.especiales is not empty %}
+                <div class="dropdown-menu show position-static float-none w-100 shadow-sm mt-2">
+                    <h6 class="dropdown-header">
+                        <i class="fa-solid fa-star fa-fw me-1"></i>{{ trans('okopermisos-especiales') }}
+                        <span class="float-end fw-normal">{{ fsc.especiales | filter(e => e.tiene) | length }}/{{ fsc.especiales | length }}</span>
+                    </h6>
+                    <div class="dropdown-divider"></div>
+                    {% for esp in fsc.especiales %}
+                        {{ _self.especial(esp, nick, huecosEspecial) }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+
+{#
+    Una entrada del menú: un `dropdown-item` como el del menú real, con el icono de la página.
+
+    Va en macro porque se pinta desde dos sitios —dentro de un submenú y suelta en el menú— y duplicarla
+    es lo que hace que una de las dos se quede atrás al cambiarla.
+
+    Lo denegado es la gran mayoría de las filas, así que va en una sola línea `small` y atenuada: el icono
+    prohibido y el gris ya lo dicen, y quitarle alto es lo que deja ver lo concedido.
+
+    Una macro no hereda el contexto: el usuario y los puntos de extensión llegan como argumentos.
+#}
+{% macro entrada(pagina, dentro, nick, huecos) %}
+    {% if pagina.tiene %}
+        <div class="dropdown-item {{ dentro ? 'ps-4' : '' }}" style="white-space: normal;">
+            <div>
+                <i class="{{ pagina.icono }} fa-fw me-1" aria-hidden="true"></i>{{ pagina.titulo }}
+                <small class="text-muted">· {{ pagina.nombre }}</small>
+            </div>
+            <div class="ms-4">
+                {% for et in pagina.etiquetas %}
+                    <span class="badge bg-{{ et.clase }}">{{ et.texto }}</span>
+                {% endfor %}
+                {% if pagina.roles %}
+                    <small class="text-muted ms-1">{{ pagina.roles }}</small>
+                {% endif %}
+                {%~ for h in huecos %}{% include h.path with {'hueco': {'pagina': pagina.nombre, 'nick': nick, 'tiene': true}} %}{% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="dropdown-item disabled small py-0 {{ dentro ? 'ps-4' : '' }}" style="white-space: normal;">
+            <i class="{{ pagina.icono }} fa-fw me-1 opacity-50" aria-hidden="true"></i>{{ pagina.titulo }}
+            <span class="opacity-50">· {{ pagina.nombre }}</span>
+            {%~ for h in huecos %}{% include h.path with {'hueco': {'pagina': pagina.nombre, 'nick': nick, 'tiene': false}} %}{% endfor %}
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{#
+    Un permiso especial: verde si lo tiene —`update` en su página—; si no, atenuado, y si sólo ve la hoja,
+    se dice. El enlace lleva a su hoja.
+#}
+{% macro especial(esp, nick, huecos) %}
+    <div class="dropdown-item small {{ esp.tiene ? '' : 'py-0' }}" style="white-space: normal;">
+        {% if esp.tiene %}
+            <span class="badge bg-success"><i class="fa-solid fa-star fa-fw"></i>{{ esp.titulo }}</span>
+            <small class="text-muted ms-1">{{ esp.roles }}</small>
+        {% else %}
+            <span class="opacity-50"><i class="fa-regular fa-star fa-fw"></i>{{ esp.titulo }}</span>
+            {% if esp.solo_hoja %}
+                <span class="badge bg-light text-dark border">{{ trans('okopermisos-especial-solo-hoja') }}</span>
+                <small class="text-muted ms-1">{{ esp.roles }}</small>
+            {% endif %}
+        {% endif %}
+        <a href="{{ asset(esp.pagina) }}" class="text-muted">· {{ esp.pagina }}</a>
+        <span class="text-muted">· {{ esp.plugin ?: trans('okopermisos-especial-origen-desconocido') }}</span>
+        {%~ for h in huecos %}{% include h.path with {'hueco': {'pagina': esp.pagina, 'nick': nick, 'tiene': esp.tiene}} %}{% endfor %}
+    </div>
+{% endmacro %}

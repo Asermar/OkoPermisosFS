@@ -1,0 +1,64 @@
+{#
+    La HOJA de un permiso especial: la página que hereda de `Lib/PermisoEspecial`.
+
+    Qué es, de qué plugin viene, quién lo tiene y cómo se concede. Sólo llega aquí quien tiene acceso a
+    `AdminPermisos` (lo exige `PermisoEspecial::run()`), así que no se oculta nada.
+
+    El plugin dueño añade lo suyo con `detalles()` o, si necesita más, con una plantilla propia que
+    extienda ésta y rellene el bloque `okopermisos_hoja_extra`.
+
+    Un plugin que NO es el dueño no puede usar ese bloque —exigiría extender la plantilla—, y para él están
+    los puntos de extensión `OkoPermisosHoja_permiso` (uno por hoja) y `OkoPermisosHoja_titular` (uno por
+    titular): ver «Puntos de extensión» en el README.
+#}
+{% extends "Master/MenuTemplate.html.twig" %}
+
+{% block body %}
+    {%~ set huecosPermiso = getIncludeViews('OkoPermisosHoja', 'permiso') %}
+    {%~ set huecosTitular = getIncludeViews('OkoPermisosHoja', 'titular') %}
+    <div class="container-fluid">
+        <div class="card shadow mt-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fa-solid fa-star fa-fw"></i> {{ fsc.title }}
+                </h5>
+                {% if fsc.descripcion() %}
+                    <p>{{ fsc.descripcion() }}</p>
+                {% endif %}
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">{{ trans('plugin') }}</dt>
+                    <dd class="col-sm-9">{{ fsc.plugin() ?: trans('okopermisos-especial-origen-desconocido') }}</dd>
+                    {% if fsc.familiaTraducida() %}
+                        <dt class="col-sm-3">{{ trans('okopermisos-especial-familia') }}</dt>
+                        <dd class="col-sm-9">{{ fsc.familiaTraducida() }}</dd>
+                    {% endif %}
+                    <dt class="col-sm-3">{{ trans('okopermisos-pagina') }}</dt>
+                    <dd class="col-sm-9"><code>{{ fsc.getClassName() }}</code></dd>
+                    {% for detalle in fsc.detalles() %}
+                        <dt class="col-sm-3">{{ detalle.etiqueta }}</dt>
+                        <dd class="col-sm-9">{{ detalle.valor }}</dd>
+                    {% endfor %}
+                </dl>
+                <div class="alert alert-info mt-3 mb-0">{{ fsc.comoSeConcede() }}</div>
+                {% block okopermisos_hoja_extra %}{% endblock %}
+                {%~ for h in huecosPermiso %}{% include h.path with {'hueco': {'pagina': fsc.getClassName(), 'nick': null, 'tiene': null}} %}{% endfor %}
+            </div>
+        </div>
+
+        <div class="card shadow mt-3">
+            <div class="card-body">
+                <h6 class="card-title">{{ trans('okopermisos-especial-titulares') }}</h6>
+                <ul class="mb-0">
+                    {% for titular in fsc.titulares() %}
+                        <li>
+                            <a href="{{ asset('EditUser') }}?code={{ titular.nick | url_encode }}">{{ titular.nick }}</a>
+                            {% if titular.admin %}<span class="badge bg-warning text-dark">{{ trans('admin') }}</span>{% endif %}
+                            {% if titular.roles %}<small class="text-muted">· {{ titular.roles }}</small>{% endif %}
+                            {%~ for h in huecosTitular %}{% include h.path with {'hueco': {'pagina': fsc.getClassName(), 'nick': titular.nick, 'tiene': true}} %}{% endfor %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

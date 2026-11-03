@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Qué se pierde de verdad al quitar un acceso de un rol. «lo_perderian» a 0 significa que ese acceso
+  es redundante: quitarlo no deja a nadie sin él.
+-->
+<view>
+    <columns>
+        <column name="okopermisos-rol" display="left" order="100">
+            <widget type="text" fieldname="codrole"/>
+        </column>
+        <!--
+          La página con el prefijo de acción al final y el controlador real entre paréntesis —«EmailConfig
+          (ConfigEmail)»—, para que lo que trata de lo mismo salga junto. Ver `Lib/NombreDePagina`.
+        -->
+        <column name="okopermisos-pagina" display="left" order="110">
+            <widget type="text" fieldname="pagina_nombre"/>
+        </column>
+        <column name="okopermisos-visible-en-menu" display="center" order="120">
+            <widget type="checkbox" fieldname="en_el_menu"/>
+        </column>
+        <column name="okopermisos-usuarios-del-rol" display="center" order="130">
+            <widget type="number" fieldname="usuarios_del_rol"/>
+        </column>
+        <column name="okopermisos-lo-perderian" display="center" order="140">
+            <widget type="number" fieldname="lo_perderian"/>
+        </column>
+        <column name="okopermisos-quienes" display="left" order="150">
+            <widget type="text" fieldname="quienes"/>
+        </column>
+        <column name="okopermisos-puede-escribir" display="center" order="160">
+            <widget type="checkbox" fieldname="puede_escribir"/>
+        </column>
+    </columns>
+</view>

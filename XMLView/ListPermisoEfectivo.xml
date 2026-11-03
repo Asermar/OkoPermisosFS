@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lo que un usuario puede hacer de verdad.
+
+  El usuario va primero: es por quien se pregunta. Después el sitio —menú, submenú, página—, que sigue
+  el orden de la aplicación, y al final los permisos.
+
+  «Nº de roles» y «Se lo conceden» van al final, detrás de los permisos: son la columna que decide una
+  poda —con más de un rol, quitarlo de uno no cambia nada— pero se consultan DESPUÉS de ver qué permite
+  la fila, no antes.
+-->
+<view>
+    <columns>
+        <column name="okopermisos-usuario" display="left" order="90">
+            <widget type="text" fieldname="nick"/>
+        </column>
+        <!--
+          El menú se pinta con un `select` y no con `text` para poder mostrar su nombre TRADUCIDO, que
+          es el que se ve en la barra de FacturaScripts: en la base está el código (`admin`,
+          `purchases`) y nadie navega por códigos. Los valores los rellena el controlador.
+        -->
+        <column name="okopermisos-menu" display="left" order="100">
+            <widget type="select" fieldname="menu"/>
+        </column>
+        <!--
+          El submenú nace OCULTO (`display="none"`): existe en el esquema y `MenuManager` lo usa para
+          anidar, pero casi siempre está vacío —ningún controlador del core lo usa; sólo algún plugin—,
+          así que gastar ancho en una columna en blanco no compensa. Queda declarada para poder activarla
+          desde «Opciones» donde se use, y sigue contando en el ORDEN, donde no molesta y agrupa bien.
+        -->
+        <column name="okopermisos-submenu" display="none" order="105">
+            <widget type="text" fieldname="submenu"/>
+        </column>
+        <!--
+          La página con el prefijo de acción al final y el controlador real entre paréntesis —«EmailConfig
+          (ConfigEmail)»—, para que lo que trata de lo mismo salga junto. Ver `Lib/NombreDePagina`.
+        -->
+        <column name="okopermisos-pagina" display="left" order="110">
+            <widget type="text" fieldname="pagina_nombre"/>
+        </column>
+        <!--
+          «Tiene acceso» es lo que dice la fila: si el usuario ENTRA en la página. No confundirla con
+          «Visible en el menú», que dice si la encuentra en SU menú y depende de ella: por eso va justo
+          DELANTE, y de los demás permisos, que sin acceso no significan nada.
+        -->
+        <column name="okopermisos-tiene-acceso" display="center" order="115">
+            <widget type="checkbox" fieldname="tiene_acceso"/>
+        </column>
+        <column name="okopermisos-visible-en-menu" display="center" order="120">
+            <widget type="checkbox" fieldname="en_el_menu"/>
+        </column>
+        <column name="okopermisos-cuantos-roles" display="center" order="210">
+            <widget type="number" fieldname="cuantos_roles"/>
+        </column>
+        <column name="okopermisos-roles" display="left" order="220">
+            <widget type="text" fieldname="roles"/>
+        </column>
+        <column name="okopermisos-puede-escribir" display="center" order="160">
+            <widget type="checkbox" fieldname="puede_escribir"/>
+        </column>
+        <column name="okopermisos-puede-borrar" display="center" order="170">
+            <widget type="checkbox" fieldname="puede_borrar"/>
+        </column>
+        <column name="okopermisos-puede-exportar" display="center" order="180">
+            <widget type="checkbox" fieldname="puede_exportar"/>
+        </column>
+        <column name="okopermisos-puede-importar" display="center" order="190">
+            <widget type="checkbox" fieldname="puede_importar"/>
+        </column>
+        <column name="okopermisos-solo-lo-suyo" display="center" order="200">
+            <widget type="checkbox" fieldname="solo_lo_suyo"/>
+        </column>
+    </columns>
+    <!--
+      La fila de acciones tiene que estar DECLARADA para que `addButton()` haga algo: el core hace
+      `$row = $this->getRow('actions'); if ($row) { ... }`, así que sin ella el botón se pierde en
+      silencio. Pasó: el botón no aparecía y nada lo decía.
+    -->
+    <rows>
+        <row type="actions"/>
+    </rows>
+</view>
