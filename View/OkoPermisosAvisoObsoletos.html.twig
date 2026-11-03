@@ -1,0 +1,9 @@
+{#
+ # Copyright (C) 2026 Oko Digital Experts, S.L.L. (Okodex)
+ # @author Alexis Serafín <alexis@okodex.com>
+ #
+ # La llamada al aviso de la API retirada PermisosEspeciales. La incluye Extension/View/MenuTemplate_HeadEnd
+ # por el espacio de nombres @OkoPermisosAviso, que registra el Init junto con la función: si el Init no ha
+ # corrido en la petición, no se incluye y esta plantilla ni se compila. Ver Init::init().
+ #}
+{{ okopermisosAvisarObsoletos(controllerName ?? '') }}

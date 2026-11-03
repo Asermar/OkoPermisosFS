@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ajustes de OkoPermisos, en Panel de control. El grupo es `okopermisosprefijos` —EditSettings lo toma
+  del nombre de este fichero— y NO `okopermisos`, que lo leen otros plugins: guardar esta pestaña no
+  puede tocarlo. Vacío = la lista por defecto de `Lib/NombreDePagina::POR_DEFECTO`.
+-->
+<view>
+    <columns>
+        <group name="okopermisosprefijos" numcolumns="12" icon="fa-solid fa-user-shield">
+            <column name="name" display="none" order="0">
+                <widget type="text" fieldname="name" readonly="true" required="true"/>
+            </column>
+            <column name="okopermisos-prefijos" order="100" numcolumns="12">
+                <widget type="text" fieldname="prefijos" maxlength="200"/>
+            </column>
+        </group>
+    </columns>
+</view>

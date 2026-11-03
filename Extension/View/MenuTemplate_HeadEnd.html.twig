@@ -1,0 +1,13 @@
+{#
+ # Copyright (C) 2026 Oko Digital Experts, S.L.L. (Okodex)
+ # @author Alexis Serafín <alexis@okodex.com>
+ #
+ # Avisa en el gestor de plugins de los que todavía usan la API retirada PermisosEspeciales. Va en
+ # HeadEnd porque se pinta antes que el bloque de mensajes, y sólo en páginas con menú, que el core
+ # renderiza después de autenticar. Ver PermisosEspeciales::avisarEnElGestor().
+ #
+ # No llama a la función directamente: en la petición que ACTIVA OkoPermisos el core ya lo cuenta como
+ # activo y pinta este gancho, pero su Init no ha corrido y la función no existe. Twig no compilaría la
+ # plantilla. El espacio de nombres lo registra el mismo Init: sin él, `ignore missing` deja el gancho vacío.
+ #}
+{% include '@OkoPermisosAviso/OkoPermisosAvisoObsoletos.html.twig' ignore missing %}

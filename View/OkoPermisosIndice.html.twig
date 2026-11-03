@@ -1,0 +1,56 @@
+{#
+    El índice de los permisos especiales instalados: la pestaña `PermisosEspeciales` de `AdminPermisos`.
+
+    Es un fragmento que el panel incluye, así que no extiende ninguna maestra. Cada permiso es una página
+    de FacturaScripts; se concede en la ficha del grupo, y aquí sólo se enlaza su hoja.
+
+    Punto de extensión `OkoPermisosIndice_permiso`, en la celda del título de cada fila: ver «Puntos de
+    extensión» en el README. Va en la celda y no en una columna propia para no descuadrar la cabecera.
+
+    Las filas llegan ordenadas por familia traducida, con las que no tienen al final (`instalados()`), y
+    cada familia abre con una fila de cabecera. Si ninguno tiene familia, no sale ninguna: la tabla queda
+    como antes. El contrato `hueco` no cambia: la familia es del permiso, y sale de `hueco.pagina`.
+#}
+    {% set permisos = fsc.permisosEspeciales() %}
+    {%~ set huecos = getIncludeViews('OkoPermisosIndice', 'permiso') %}
+    <div class="container-fluid">
+        <div class="card shadow">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fa-solid fa-star fa-fw"></i> {{ trans('okopermisos-especiales') }}
+                </h5>
+                <p class="text-muted small mb-2">{{ trans('okopermisos-especial-ayuda') }}</p>
+                {% if permisos is empty %}
+                    <div class="alert alert-secondary mb-0">{{ trans('okopermisos-especial-ninguno') }}</div>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                            <tr>
+                                <th>{{ trans('okopermisos-especial-permiso') }}</th>
+                                <th>{{ trans('okopermisos-pagina') }}</th>
+                                <th>{{ trans('plugin') }}</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {%~ set grupo = '' %}
+                            {% for permiso in permisos %}
+                                {%~ if permiso.familia_titulo != grupo %}
+                                    {%~ set grupo = permiso.familia_titulo %}
+                                    <tr class="table-light okopermisos-familia">
+                                        <th colspan="3">{{ grupo ?: trans('okopermisos-especial-sin-familia') }}</th>
+                                    </tr>
+                                {%~ endif %}
+                                <tr>
+                                    <td><a href="{{ asset(permiso.pagina) }}">{{ permiso.titulo }}</a>{% for h in huecos %}{% include h.path with {'hueco': {'pagina': permiso.pagina, 'nick': null, 'tiene': null}} %}{% endfor %}</td>
+                                    <td><code>{{ permiso.pagina }}</code></td>
+                                    <td>{{ permiso.plugin ?: trans('okopermisos-especial-origen-desconocido') }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
