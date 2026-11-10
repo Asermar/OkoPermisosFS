@@ -56,9 +56,9 @@ class NombreDePagina
 
     /**
      * Los prefijos de la instalación, del más largo al más corto para que uno no tape a otro. Sólo letras:
-     * van dentro del SQL de `sql()`, así que lo demás se descarta, y **se avisa** —una vez por petición,
-     * porque esto se llama una vez por expresión—: un prefijo mal escrito que no hace nada sin decirlo se
-     * lee como «el giro no funciona». Una entrada vacía, como la de una coma de más, no es un error.
+     * van dentro del SQL de `sql()` —escapados con `Motor::texto()`, pero sólo letras de todos modos—, así
+     * que lo demás se descarta, y **se avisa** —una vez por petición, porque esto se llama una vez por
+     * expresión—: un prefijo mal escrito que no hace nada sin decirlo se lee como «el giro no funciona». Una entrada vacía, como la de una coma de más, no es un error.
      *
      * @return string[]
      */
@@ -97,31 +97,32 @@ class NombreDePagina
      */
     public static function prefijoSql(string $columna): string
     {
-        return self::segun($columna, static fn (string $prefijo): string => '"' . $prefijo . '"', '""');
+        return self::segun($columna, static fn (string $prefijo): string => Motor::texto($prefijo), "''");
     }
 
-    /**
-     * La expresión SQL del nombre girado sobre una columna con el nombre de la página. MySQL/MariaDB,
-     * como el resto de las vistas del plugin: `BINARY` hace la comparación sensible a mayúsculas.
-     */
+    /** La expresión SQL del nombre girado sobre una columna con el nombre de la página. */
     public static function sql(string $columna): string
     {
         return self::segun($columna, static fn (string $prefijo, int $largo): string =>
-            'CONCAT(SUBSTRING(' . $columna . ', ' . ($largo + 1) . '), "' . $prefijo . ' (", ' . $columna . ', ")")',
+            'CONCAT(SUBSTRING(' . $columna . ', ' . ($largo + 1) . '), ' . Motor::texto($prefijo . ' (') . ', '
+            . $columna . ", ')')",
             $columna);
     }
 
     /**
      * Un `CASE` con una rama por prefijo de la instalación: la condición es la misma para las tres
      * expresiones —empieza por el prefijo y detrás viene una mayúscula—, y cambia sólo qué se devuelve.
+     *
+     * Las dos mitades distinguen mayúsculas en los dos motores: el prefijo con `Motor::igualExacto()`, y la
+     * mayúscula por su código, de la A (65) a la Z (90), que no depende de la colación.
      */
     private static function segun(string $columna, callable $entonces, string $sino): string
     {
         $casos = '';
         foreach (self::prefijos() as $prefijo) {
             $largo = strlen($prefijo);
-            $casos .= ' WHEN BINARY LEFT(' . $columna . ', ' . $largo . ') = "' . $prefijo . '"'
-                . ' AND BINARY SUBSTRING(' . $columna . ', ' . ($largo + 1) . ', 1) REGEXP "^[A-Z]$"'
+            $casos .= ' WHEN ' . Motor::igualExacto('LEFT(' . $columna . ', ' . $largo . ')', $prefijo)
+                . ' AND ASCII(SUBSTRING(' . $columna . ', ' . ($largo + 1) . ', 1)) BETWEEN 65 AND 90'
                 . ' THEN ' . $entonces($prefijo, $largo);
         }
 

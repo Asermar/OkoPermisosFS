@@ -95,12 +95,14 @@ class AdminPermisos extends PanelController
     public function usuarios(): array
     {
         $valores = [];
-        foreach (DbQuery::table('users')->select('nick, admin')->orderMulti(['nick' => 'ASC'])->get() as $fila) {
-            $nick = (string)$fila['nick'];
+        // con el modelo y no con `DbQuery`: crudo, PostgreSQL devuelve el booleano como 't' o 'f', y 'f' es
+        // verdadero en PHP
+        foreach (User::all([], ['nick' => 'ASC'], 0, 0) as $usuario) {
+            $nick = (string)$usuario->nick;
             $valores[] = [
                 'code' => $nick,
                 // el «(admin)» va en la propia lista: es lo que invalida el árbol de abajo
-                'description' => $fila['admin'] ? $nick . ' (admin)' : $nick,
+                'description' => $usuario->admin ? $nick . ' (admin)' : $nick,
             ];
         }
 
@@ -207,15 +209,17 @@ class AdminPermisos extends PanelController
             // que se lee. El orden de la barra de FacturaScripts queda como alternativo, a un clic.
             //
             // `LOWER()` no es adorno: sin él las mayúsculas se agrupan aparte y `GestionAlmacen` cae lejos
-            // de `gestionalmacen`, que es justo lo que despista al leer.
-            ->addOrderBy(['LOWER(p.menu)', 'LOWER(p.submenu)', 'LOWER(entidad)', 'LOWER(prefijo)'],
+            // de `gestionalmacen`, que es justo lo que despista al leer. En `entidad` y `prefijo` lo pone el
+            // propio campo: PostgreSQL no admite un alias dentro de una expresión del ORDER BY, y `ListView`
+            // parte cada campo por las comas, así que la expresión tampoco puede ir aquí.
+            ->addOrderBy(['LOWER(p.menu)', 'LOWER(p.submenu)', 'entidad', 'prefijo'],
                 'okopermisos-menu-pagina', 1)
             ->addOrderBy(['LOWER(p.menu)', 'LOWER(p.submenu)', 'p.ordernum', 'LOWER(p.title)'],
                 'okopermisos-orden-del-menu')
             ->addOrderBy(['cuantos_roles', 'nick'], 'okopermisos-cuantos-roles')
-            ->addOrderBy(['nick', 'LOWER(pagina_nombre)'], 'okopermisos-usuario')
+            ->addOrderBy(['nick', 'pagina_orden'], 'okopermisos-usuario')
             // por el nombre girado, que es el que se lee: «EmailConfig» junto a «EmailSentEdit»
-            ->addOrderBy(['LOWER(pagina_nombre)', 'nick'], 'okopermisos-pagina')
+            ->addOrderBy(['pagina_orden', 'nick'], 'okopermisos-pagina')
             // Los campos buscables son además los que BuscadorAcumulado ofrece en su selector: ese
             // plugin cruza `searchFields` con las columnas de la vista, así que declarar sólo el usuario
             // y la página dejaba fuera lo demás. Con el menú dentro se pueden acumular búsquedas y ver
@@ -226,7 +230,7 @@ class AdminPermisos extends PanelController
             ->addSearchFields(['e.nick', 'e.pagename', 'p.menu', 'p.submenu', 'p.title', 'e.roles'])
             ->addFilterSelect('nick', 'okopermisos-usuario', 'e.nick', $this->usuarios())
             ->addFilterSelect('menu', 'okopermisos-menu', 'p.menu', $this->menusQueExisten())
-            // Por grupo: aquí los roles vienen agregados en un GROUP_CONCAT, así que no vale un
+            // Por grupo: aquí los roles vienen agregados en una lista, así que no vale un
             // `addFilterSelect` sobre una columna. Se busca el código CERCADO POR COMAS —«,ventas,»—
             // porque `Where::like` envuelve en `%…%` y sin las comas «ventas» casaría también con un rol
             // «ventasconsulta», que es otro rol y puede conceder otras cosas.
@@ -295,8 +299,8 @@ class AdminPermisos extends PanelController
         $this->addListView($viewName, 'Join\ImpactoDeQuitar', 'okopermisos-impacto', 'fa-solid fa-scissors')
             // los que más gente pierde, primero: son las decisiones que hay que pensar
             ->addOrderBy(['lo_perderian', 'codrole'], 'okopermisos-lo-perderian', 2)
-            ->addOrderBy(['codrole', 'LOWER(pagina_nombre)'], 'okopermisos-rol')
-            ->addOrderBy(['LOWER(pagina_nombre)'], 'okopermisos-pagina')
+            ->addOrderBy(['codrole', 'pagina_orden'], 'okopermisos-rol')
+            ->addOrderBy(['pagina_orden'], 'okopermisos-pagina')
             ->addSearchFields(['ra.codrole', 'ra.pagename'])
             ->addFilterSelect('codrole', 'okopermisos-rol', 'ra.codrole', $this->rolesConAccesos())
             ->setSettings('btnNew', false)
@@ -451,7 +455,7 @@ class AdminPermisos extends PanelController
     /**
      * Las opciones del filtro por grupo, una por rol con accesos.
      *
-     * Va como `addFilterSelectWhere` y no como `addFilterSelect` porque el campo es un `GROUP_CONCAT`:
+     * Va como `addFilterSelectWhere` y no como `addFilterSelect` porque el campo es una lista agregada:
      * no se compara, se busca dentro. Cada opción lleva su propio `Where` con el código cercado.
      */
     protected function opcionesDeGrupo(): array
