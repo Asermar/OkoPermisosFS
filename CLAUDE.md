@@ -129,6 +129,25 @@ el punto a controlar llama a `PermisoEspecial::exigir(MiPermiso::class)`.
   concesiones es cosa del plugin dueño —es quien sabe qué página corresponde a cada código viejo—, con
   una migración propia que lea `Tools::settings('okopermisos', <código>)`.
 
+## Dos motores: MySQL/MariaDB y PostgreSQL
+
+La forja prueba cada plugin en los dos, y la 1.06 se rechazó por fallar en PostgreSQL.
+
+- **Lo que se escribe distinto vive sólo en `Lib/Motor`**: la comparación que distingue mayúsculas
+  (`BINARY` en MySQL/MariaDB, nada en PostgreSQL) y la lista agregada (`GROUP_CONCAT` / `STRING_AGG`). El
+  resto del SQL es común: no añadas otra rama por motor fuera de ahí.
+- **Textos con comilla simple**: con comillas dobles PostgreSQL lee un identificador.
+- **Los booleanos del core no se comparan con enteros ni se agregan crudos**: `u.admin = 1` y
+  `MAX(ra.allowupdate)` fallan en PostgreSQL. Van como `= TRUE`/`= FALSE` y `CASE … THEN 1 ELSE 0 END`.
+  Leídos en crudo (`DbQuery`, un campo de `JoinModel` sin convertir) llegan como `'t'`/`'f'`, y `'f'` es
+  verdadero en PHP: o se convierten a 0/1 en el SQL, o se leen con el modelo.
+- **El ORDER BY de un `addOrderBy` es un alias desnudo o una expresión SIN comas.** PostgreSQL no admite
+  un alias dentro de una expresión (`LOWER(pagina_nombre)`), y `ListView::setSelectedOrderBy` parte cada
+  campo por las comas, así que una expresión con comas tampoco vale. De ahí los campos `entidad`,
+  `prefijo` y `pagina_orden`, que ya vienen en minúsculas.
+- **La mayúscula detrás del prefijo se mira por su código** (`ASCII(…) BETWEEN 65 AND 90`), que no depende
+  de la colación ni del motor.
+
 ## Las cicatrices del framework, que aquí ya se pagaron
 
 - **`JoinModel` no genera `HAVING`.** Construye `WHERE … GROUP BY`, así que un campo agregado **no se
@@ -190,7 +209,10 @@ sin depender de nadie.
 
 ## Tests
 
-Un escenario, `Test/main/`. `FamiliaTest` prueba la familia —el `submenu` por el `loadPage()` real del
+Un escenario, `Test/main/`, que es el que se lanza en los dos motores. `DosMotoresTest` recorre cada
+consulta que se escribe distinto con datos que distinguen el resultado —prefijo en minúsculas, roles
+sembrados al revés de su orden, un usuario que conserva el acceso por otro rol— y ejecuta cada orden del
+panel. `FamiliaTest` prueba la familia —el `submenu` por el `loadPage()` real del
 deploy, también al redesplegar, la clave larga, la agrupación del índice y la hoja— con diez mutaciones
 que caen todas. Además: `PermisosEfectivosTest` prueba la **aritmética** que
 decide una poda, `TieneAccesoTest` la fila por usuario × página —acceso sin «modificar» fuera del menú,
