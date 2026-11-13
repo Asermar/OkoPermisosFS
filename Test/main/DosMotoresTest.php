@@ -184,7 +184,7 @@ final class DosMotoresTest extends TestCase
     /**
      * @description
      * **El prefijo gira sólo con su mayúscula y su minúscula exactas.** MySQL/MariaDB compara sin distinguir
-     * mayúsculas, así que sin `BINARY` `listOko…` giraría como si fuera `List`; y un prefijo seguido de una
+     * mayúsculas, así que sin comparar en binario `listOko…` giraría como si fuera `List`; y un prefijo seguido de una
      * minúscula (`Editor…`) tampoco es una acción.
      */
     public function testElPrefijoDistingueMayusculas(): void

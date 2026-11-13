@@ -35,7 +35,8 @@ use FacturaScripts\Core\Tools;
  * - **Comparar distinguiendo mayúsculas.** En MySQL/MariaDB la comparación sigue la colación de la
  *   columna, que es de la instalación (`FS_MYSQL_COLLATE`): el instalador del core pone
  *   `utf8mb4_unicode_520_ci` en las bases nuevas, que no distingue, y `utf8_bin` en las antiguas, que sí.
- *   `BINARY` hace que distinga en las dos. En PostgreSQL ya distingue, y `BINARY` no existe.
+ *   `CAST(… AS BINARY)` hace que distinga en las dos; no el operador `BINARY`, obsoleto desde MySQL
+ *   8.0.27. En PostgreSQL ya distingue, y ese `CAST` no existe.
  * - **Juntar valores en una lista.** `GROUP_CONCAT` es de MySQL/MariaDB; PostgreSQL tiene `STRING_AGG`.
  * - **Buscar un texto exacto dentro de otro.** `LIKE` no sirve: `Where::like` pone `LOWER()` a los dos lados
  *   y el `_` hace de comodín. `LOCATE` con el texto en binario en MySQL/MariaDB y `STRPOS` en PostgreSQL
@@ -46,7 +47,8 @@ class Motor
     /** `expresion = texto` distinguiendo mayúsculas en los dos motores. */
     public static function igualExacto(string $expresion, string $texto): string
     {
-        return (self::esPostgresql() ? '' : 'BINARY ') . $expresion . ' = ' . self::texto($texto);
+        return (self::esPostgresql() ? $expresion : 'CAST(' . $expresion . ' AS BINARY)')
+            . ' = ' . self::texto($texto);
     }
 
     /**

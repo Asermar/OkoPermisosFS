@@ -134,7 +134,7 @@ el punto a controlar llama a `PermisoEspecial::exigir(MiPermiso::class)`.
 La forja prueba cada plugin en los dos, y la 1.06 se rechazó por fallar en PostgreSQL.
 
 - **Lo que se escribe distinto vive sólo en `Lib/Motor`**: la comparación que distingue mayúsculas
-  (`BINARY` en MySQL/MariaDB, nada en PostgreSQL), la búsqueda exacta de un texto dentro de otro
+  (`CAST(… AS BINARY)` en MySQL/MariaDB, nada en PostgreSQL), la búsqueda exacta de un texto dentro de otro
   (`LOCATE` binario / `STRPOS`) y la lista agregada (`GROUP_CONCAT` / `STRING_AGG`). El
   resto del SQL es común: no añadas otra rama por motor fuera de ahí.
 - **Textos con comilla simple**: con comillas dobles PostgreSQL lee un identificador.
