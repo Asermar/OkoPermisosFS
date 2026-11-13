@@ -22,6 +22,7 @@
 namespace FacturaScripts\Plugins\OkoPermisos\Model\Join;
 
 use FacturaScripts\Core\Template\JoinModel;
+use FacturaScripts\Plugins\OkoPermisos\Lib\Motor;
 use FacturaScripts\Plugins\OkoPermisos\Lib\NombreDePagina;
 
 /**
@@ -141,27 +142,29 @@ class PermisoEfectivo extends JoinModel
     {
         return [
             // el id es sintético: esta vista no tiene fila propia en ninguna tabla
-            'id' => 'CONCAT(e.nick, "|", e.pagename)',
+            'id' => "CONCAT(e.nick, '|', e.pagename)",
             'nick' => 'e.nick',
             'pagina' => 'e.pagename',
             // el que se LEE y por el que se ORDENA: «EmailConfig (ConfigEmail)». `pagina` sigue siendo el real
             'pagina_nombre' => NombreDePagina::sql('e.pagename'),
+            // el mismo, en minúsculas, para ORDENAR: PostgreSQL no admite `LOWER(pagina_nombre)` en el ORDER BY
+            'pagina_orden' => 'LOWER(' . NombreDePagina::sql('e.pagename') . ')',
             'titulo' => 'p.title',
             'menu' => 'p.menu',
             'submenu' => 'p.submenu',
             // del usuario: la página sale en el menú Y él tiene acceso (ver el docblock)
-            'en_el_menu' => 'CASE WHEN p.showonmenu = 1 AND p.menu IS NOT NULL AND p.menu <> ""'
+            'en_el_menu' => "CASE WHEN p.showonmenu = TRUE AND p.menu IS NOT NULL AND p.menu <> ''"
                 . ' AND e.tiene_acceso = 1 THEN 1 ELSE 0 END',
             // La entidad a la que se refiere la página: `ListCliente`, `EditCliente` y `ReportCliente` son
             // «Cliente», así que ordenando por aquí salen juntas. Con la lista de prefijos de la instalación,
-            // la misma de la columna «Página» (`Lib/NombreDePagina`).
-            'entidad' => NombreDePagina::entidadSql('e.pagename'),
+            // la misma de la columna «Página» (`Lib/NombreDePagina`). En minúsculas, por lo mismo que `pagina_orden`.
+            'entidad' => 'LOWER(' . NombreDePagina::entidadSql('e.pagename') . ')',
             // y dentro de la entidad, sus prefijos por orden alfabético —Edit antes que List, como en la
             // columna «Página»—; la que no tiene prefijo, primero
-            'prefijo' => NombreDePagina::prefijoSql('e.pagename'),
+            'prefijo' => 'LOWER(' . NombreDePagina::prefijoSql('e.pagename') . ')',
             'tiene_acceso' => 'e.tiene_acceso',
             // la columna que se ve: «(admin)» delante si lo es, porque entonces tiene acceso por el flag
-            'roles' => 'CONCAT_WS(" ", CASE WHEN e.es_admin = 1 THEN "(admin)" END, e.roles)',
+            'roles' => "CONCAT_WS(' ', CASE WHEN e.es_admin = 1 THEN '(admin)' END, e.roles)",
             // sólo lo que dan los roles, sin la marca: para quien evalúa al admin sin el flag
             'roles_por_rol' => 'e.roles',
             // los mismos roles cercados por comas, para poder filtrar por UNO sin casar de más
@@ -178,12 +181,12 @@ class PermisoEfectivo extends JoinModel
     protected function getSQLFrom(): string
     {
         return '(SELECT u.nick, pg.name AS pagename,'
-            . '   CASE WHEN u.admin = 1 THEN 1 ELSE 0 END AS es_admin,'
+            . '   CASE WHEN u.admin = TRUE THEN 1 ELSE 0 END AS es_admin,'
             // como `User::can()`: el admin pasa en toda página; los demás, si algún rol la tiene
-            . '   CASE WHEN u.admin = 1 OR a.nick IS NOT NULL THEN 1 ELSE 0 END AS tiene_acceso,'
+            . '   CASE WHEN u.admin = TRUE OR a.nick IS NOT NULL THEN 1 ELSE 0 END AS tiene_acceso,'
             . '   a.roles,'
             . '   COALESCE(a.cuantos_roles, 0) AS cuantos_roles,'
-            . '   COALESCE(a.roles_cercado, "") AS roles_cercado,'
+            . "   COALESCE(a.roles_cercado, '') AS roles_cercado,"
             . '   COALESCE(a.puede_escribir, 0) AS puede_escribir,'
             . '   COALESCE(a.puede_borrar, 0) AS puede_borrar,'
             . '   COALESCE(a.puede_exportar, 0) AS puede_exportar,'
@@ -195,18 +198,19 @@ class PermisoEfectivo extends JoinModel
             . '   UNION ALL SELECT DISTINCT pagename, 0 FROM roles_access'
             . '   WHERE pagename NOT IN (SELECT name FROM pages)) pg'
             . ' LEFT JOIN (SELECT ru.nick, ra.pagename,'
-            . '   GROUP_CONCAT(DISTINCT ra.codrole ORDER BY ra.codrole) AS roles,'
+            . '   ' . Motor::lista('ra.codrole') . ' AS roles,'
             . '   COUNT(DISTINCT ra.codrole) AS cuantos_roles,'
             // «,ventas,» no casa «,ventasconsulta,»: sin las comas, filtrar por un rol traería también
             // los que empiezan igual (los nombres son de ejemplo)
-            . '   CONCAT(",", GROUP_CONCAT(DISTINCT ra.codrole ORDER BY ra.codrole), ",") AS roles_cercado,'
-            // el más permisivo gana: un rol restrictivo no restringe si otro concede
-            . '   MAX(ra.allowupdate) AS puede_escribir,'
-            . '   MAX(ra.allowdelete) AS puede_borrar,'
-            . '   MAX(ra.allowexport) AS puede_exportar,'
-            . '   MAX(ra.allowimport) AS puede_importar,'
+            . "   CONCAT(',', " . Motor::lista('ra.codrole') . ", ',') AS roles_cercado,"
+            // el más permisivo gana: un rol restrictivo no restringe si otro concede. Los flags son
+            // booleanos y PostgreSQL no tiene MAX ni MIN de un booleano, así que se agregan como 0/1
+            . '   MAX(CASE WHEN ra.allowupdate = TRUE THEN 1 ELSE 0 END) AS puede_escribir,'
+            . '   MAX(CASE WHEN ra.allowdelete = TRUE THEN 1 ELSE 0 END) AS puede_borrar,'
+            . '   MAX(CASE WHEN ra.allowexport = TRUE THEN 1 ELSE 0 END) AS puede_exportar,'
+            . '   MAX(CASE WHEN ra.allowimport = TRUE THEN 1 ELSE 0 END) AS puede_importar,'
             // ésta restringe, así que basta un rol sin ella para que no aplique
-            . '   MIN(ra.onlyownerdata) AS solo_lo_suyo'
+            . '   MIN(CASE WHEN ra.onlyownerdata = TRUE THEN 1 ELSE 0 END) AS solo_lo_suyo'
             . '   FROM roles_users ru'
             . '   JOIN roles_access ra ON ra.codrole = ru.codrole'
             . '   GROUP BY ru.nick, ra.pagename) a ON a.nick = u.nick AND a.pagename = pg.name'

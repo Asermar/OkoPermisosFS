@@ -14,6 +14,8 @@ muestra los accesos *de un rol* o los roles *de un usuario*, nunca el cruce. Eso
 pregunta que bloquea cualquier limpieza: **si quito este acceso de este rol, ¿alguien lo pierde de
 verdad, o lo tiene también por otro?**
 
+Funciona con los dos motores de base de datos que admite FacturaScripts: **MySQL/MariaDB y PostgreSQL**.
+
 ## Funcionalidades
 
 Todo vive en **un solo panel**, *Administración → Permisos* (`AdminPermisos`), con una entrada lateral

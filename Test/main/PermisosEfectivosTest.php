@@ -120,7 +120,7 @@ final class PermisosEfectivosTest extends TestCase
      * reales de otros plugins en cualquier entorno con datos.
      *
      * No es un caso inventado: dos roles donde uno es prefijo del otro —«ventas» y «ventasconsulta»— son
-     * habituales, y un `LIKE` suelto sobre el `GROUP_CONCAT` traía las filas del otro rol. Si ése concede
+     * habituales, y un `LIKE` suelto sobre la lista de roles traía las filas del otro rol. Si ése concede
      * cosas distintas, mezclarlos haría inservible la herramienta para lo que se hizo.
      */
     public function testElFiltroPorGrupoNoCasaDeMas(): void
