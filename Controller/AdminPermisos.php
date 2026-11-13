@@ -459,11 +459,20 @@ class AdminPermisos extends PanelController
      *
      * Va como `addFilterSelectWhere` y no como `addFilterSelect` porque el campo es una lista agregada:
      * no se compara, se busca dentro. Cada opción lleva su propio `Where` con el código cercado.
+     *
+     * **Un código que no cumpla la regla del core no entra**, y se avisa: va en el CAMPO del `Where`
+     * (`Motor::posicion`), y `Where::sql()` parte el campo por `|`, así que un código con `|` sacaría texto de
+     * la comilla y rompería la consulta. `Role::test()` no deja crearlo, pero puede llegar por SQL directo,
+     * por otro plugin o por datos migrados. La regla es la de `Role::test()`, anclada con `\z`.
      */
     protected function opcionesDeGrupo(): array
     {
         $opciones = [['label' => Tools::trans('okopermisos-rol'), 'where' => []]];
         foreach ($this->rolesConAccesos() as $rol) {
+            if (1 !== preg_match('/^[A-Z0-9_\+\.\-]{1,20}\z/i', $rol['code'])) {
+                Tools::log()->warning('okopermisos-rol-no-valido', ['%codrole%' => $rol['code']]);
+                continue;
+            }
             $opciones[] = [
                 'label' => $rol['description'],
                 'where' => [Where::gt(Motor::posicion('e.roles_cercado', ',' . $rol['code'] . ','), 0)],

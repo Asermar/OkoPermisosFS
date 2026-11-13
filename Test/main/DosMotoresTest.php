@@ -150,6 +150,68 @@ final class DosMotoresTest extends TestCase
 
     /**
      * @description
+     * **Un código de rol con `|` no tumba el filtro de grupo.** El core no deja crearlo (`Role::test()`),
+     * pero puede llegar por SQL directo, por otro plugin o por datos migrados. El código va en el CAMPO del
+     * `Where` (`Motor::posicion`) y `Where::sql()` parte el campo por `|`, así que sacaría texto de la
+     * comilla. El panel lo deja fuera del filtro, avisa, y los demás roles siguen saliendo.
+     */
+    public function testUnRolConBarraNoEntraEnElFiltroDeGrupo(): void
+    {
+        $this->accesos($this->rol('okomotorrola'), ['EditOkoPermisosPruebaBarra' => false]);
+        $db = new DataBase();
+        $db->connect();
+        // sin el modelo, que no los dejaría pasar. El del salto de línea final lo dejaría pasar una regla
+        // anclada con `$` en vez de `\z`
+        foreach (['okomotorrol|x', "okomotorroln\n"] as $codrole) {
+            $this->assertTrue($db->exec('INSERT INTO roles (codrole, descripcion) VALUES ('
+                . $db->var2str($codrole) . ', ' . $db->var2str('rol de prueba de OkoPermisos') . ');'));
+            $this->assertTrue($db->exec('INSERT INTO roles_access (codrole, pagename) VALUES ('
+                . $db->var2str($codrole) . ', ' . $db->var2str('EditOkoPermisosPruebaBarra') . ');'));
+        }
+
+        Tools::log()::clear();
+        $metodo = new \ReflectionMethod(AdminPermisos::class, 'opcionesDeGrupo');
+        $metodo->setAccessible(true);
+        $opciones = $metodo->invoke(new AdminPermisos('AdminPermisos'));
+        foreach ($opciones as $opcion) {
+            PermisoEfectivo::all($opcion['where'], [], 0, 1);
+        }
+
+        $this->assertSame([], Tools::log()::read('', ['critical', 'error']), 'ninguna opción da error de SQL');
+        $etiquetas = array_column($opciones, 'label');
+        $this->assertSame([], array_values(array_filter($etiquetas,
+            static fn (string $e): bool => str_ends_with($e, '— okomotorrol|x'))), 'el código con | no se ofrece');
+        $this->assertSame([], array_values(array_filter($etiquetas,
+            static fn (string $e): bool => str_ends_with($e, "— okomotorroln\n"))), 'ni el del salto de línea');
+        $this->assertCount(1, array_filter($etiquetas, static fn (string $e): bool => str_ends_with($e, '— okomotorrola')),
+            'control positivo: los demás roles siguen saliendo');
+        $aviso = Tools::trans('okopermisos-rol-no-valido', ['%codrole%' => 'okomotorrol|x']);
+        $this->assertNotSame('okopermisos-rol-no-valido', $aviso, 'control positivo: la clave tiene traducción');
+        $this->assertContains($aviso, array_column(Tools::log()::read('', ['warning']), 'message'), 'y se avisa');
+        Tools::log()::clear();
+    }
+
+    /**
+     * @description
+     * **`Motor::posicion()` se niega a construir una expresión con `|`**, que `Where` partiría. Es el
+     * contrato de quien la llama; el dato de la base ya lo filtra el panel.
+     */
+    public function testLaPosicionNoAdmiteLaBarra(): void
+    {
+        foreach ([['e.roles_cercado', ',a|b,'], ['e.roles_cercado|x', ',ab,']] as [$expresion, $texto]) {
+            try {
+                Motor::posicion($expresion, $texto);
+                $this->fail('aceptó un | en «' . $expresion . '» / «' . $texto . '»');
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString('|', $e->getMessage());
+            }
+        }
+        $this->assertStringContainsString('e.roles_cercado', Motor::posicion('e.roles_cercado', ',ab,'),
+            'control positivo: sin | la construye');
+    }
+
+    /**
+     * @description
      * **El impacto lista a quienes lo perderían, ordenados, y no a quien lo tiene por otro rol.** Los
      * usuarios se siembran fuera de orden y el del medio conserva el acceso: la lista exacta es la de los
      * otros dos, separados por comas.

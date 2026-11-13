@@ -23,6 +23,7 @@ namespace FacturaScripts\Plugins\OkoPermisos\Lib;
 
 use FacturaScripts\Core\Base\DataBase;
 use FacturaScripts\Core\Tools;
+use InvalidArgumentException;
 
 /**
  * **Lo único del SQL del plugin que MySQL/MariaDB y PostgreSQL escriben distinto.**
@@ -67,10 +68,17 @@ class Motor
      * La posición de `texto` dentro de `expresion`, contando desde 1, o 0 si no está: distinguiendo
      * mayúsculas y sin comodines. Se usa como campo de un `Where` (`Where::gt(Motor::posicion(…), 0)`): el
      * core no escapa un campo con paréntesis. Por lo mismo, ni la expresión ni el texto pueden llevar `|`,
-     * que es el separador de campos de `Where`.
+     * que es el separador de campos de `Where`: partiría la expresión y sacaría texto de la comilla. Se niega
+     * con una excepción, porque es un error de quien llama; un dato de la base se filtra antes.
+     *
+     * @throws InvalidArgumentException si la expresión o el texto llevan `|`
      */
     public static function posicion(string $expresion, string $texto): string
     {
+        if (str_contains($expresion . $texto, '|')) {
+            throw new InvalidArgumentException('Motor::posicion() no admite «|»: es el separador de campos de Where');
+        }
+
         return self::esPostgresql()
             ? 'STRPOS(' . $expresion . ', ' . self::texto($texto) . ')'
             : 'LOCATE(CAST(' . self::texto($texto) . ' AS BINARY), ' . $expresion . ')';

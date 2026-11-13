@@ -140,7 +140,10 @@ La forja prueba cada plugin en los dos, y la 1.06 se rechazó por fallar en Post
 - **Textos con comilla simple**: con comillas dobles PostgreSQL lee un identificador.
 - **Buscar un código dentro de una lista no se hace con `Where::like`**: pone `LOWER()` a los dos lados y
   el `_` de un `codrole` hace de comodín. Va con `Where::gt(Motor::posicion(…), 0)`, que es exacta en los
-  dos motores; el core deja pasar la expresión porque lleva paréntesis. El caso de las mayúsculas sólo se
+  dos motores; el core deja pasar la expresión porque lleva paréntesis. **Pero la parte por `|`**, su
+  separador de campos, y un `|` sacaría texto de la comilla: `posicion()` lo rechaza con una excepción, y el
+  filtro de grupo no ofrece los códigos que no cumplen la regla de `Role::test()` (anclada con `\z`), que
+  pueden llegar por SQL directo o por datos migrados; avisa y sigue. El caso de las mayúsculas sólo se
   ejecuta donde la colación deja convivir `Ventas` y `VENTAS`; en una MariaDB con la del instalador se
   salta, y lo vigila `testLaPosicionEsExacta` sobre literales.
 - **Los booleanos del core no se comparan con enteros ni se agregan crudos**: `u.admin = 1` y
