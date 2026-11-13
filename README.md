@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="#changelog"><img alt="Versión" src="https://img.shields.io/badge/Versi%C3%B3n-1.06-blue?style=for-the-badge"/></a>
+  <a href="#changelog"><img alt="Versión" src="https://img.shields.io/badge/Versi%C3%B3n-1.07-blue?style=for-the-badge"/></a>
   <img src="https://img.shields.io/badge/FacturaScripts-≥%20v2026-1f4e79?style=for-the-badge" alt="FacturaScripts"/>
   <img src="https://img.shields.io/badge/PHP-≥%208.1-777bb4?style=for-the-badge" alt="PHP"/>
   <a href="#licencia"><img src="https://img.shields.io/badge/licencia-LGPL--3.0--or--later-green?style=for-the-badge" alt="licencia"/></a>
@@ -340,6 +340,22 @@ Las listas de las demás pestañas —«Permisos efectivos», «Impacto de quita
   convierte el plugin dueño con una migración propia.
 
 ## Changelog
+
+### v1.07
+- **OkoPermisos funciona también con PostgreSQL.** El SQL de las vistas vale en MySQL/MariaDB y en
+  PostgreSQL. **Por qué**: es lo que pidió la forja de facturascripts.com al rechazar la 1.06 —«parece
+  que falla al probarlo en PostgreSQL»—.
+- **El filtro por grupo de `AdminPermisos` devuelve exactamente las filas del rol elegido**: distingue
+  mayúsculas, y el `_` del código de rol ya no hace de comodín. Antes usaba `LIKE` con `LOWER`, así que
+  `A_B` casaba también con `AXB`.
+- **Un código de rol que el core no admite ya no rompe la consulta del filtro por grupo**: no se ofrece,
+  y se avisa en el registro por el canal `okopermisos-rol-no-valido`. Un código con `|` —sólo posible
+  escribiendo directo en la base o con datos migrados— sacaba texto fuera de la comilla.
+- **La comparación que distingue mayúsculas en MySQL/MariaDB usa `CAST(… AS BINARY)`** y no el operador
+  `BINARY`, obsoleto desde MySQL 8.0.27.
+
+  **Al actualizar**: no hay migración ni dependencia nueva —este plugin no crea tablas—, y los permisos
+  concedidos no se tocan.
 
 ### v1.06
 - **La API retirada en la 1.04 vuelve como esqueleto obsoleto.** `Lib/PermisosEspeciales` conserva las
