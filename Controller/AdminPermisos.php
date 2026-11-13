@@ -28,6 +28,7 @@ use FacturaScripts\Core\Where;
 use FacturaScripts\Dinamic\Model\Role;
 use FacturaScripts\Dinamic\Model\User;
 use FacturaScripts\Plugins\OkoPermisos\Lib\MenuDelUsuario;
+use FacturaScripts\Plugins\OkoPermisos\Lib\Motor;
 use FacturaScripts\Plugins\OkoPermisos\Lib\PermisoEspecial;
 
 /**
@@ -231,9 +232,10 @@ class AdminPermisos extends PanelController
             ->addFilterSelect('nick', 'okopermisos-usuario', 'e.nick', $this->usuarios())
             ->addFilterSelect('menu', 'okopermisos-menu', 'p.menu', $this->menusQueExisten())
             // Por grupo: aquí los roles vienen agregados en una lista, así que no vale un
-            // `addFilterSelect` sobre una columna. Se busca el código CERCADO POR COMAS —«,ventas,»—
-            // porque `Where::like` envuelve en `%…%` y sin las comas «ventas» casaría también con un rol
-            // «ventasconsulta», que es otro rol y puede conceder otras cosas.
+            // `addFilterSelect` sobre una columna. Se busca el código CERCADO POR COMAS —«,ventas,»— porque
+            // sin las comas «ventas» casaría también con un rol «ventasconsulta», que es otro rol y puede
+            // conceder otras cosas. Y se busca exacto (`Motor::posicion`), no con `Where::like`: ése ignora
+            // las mayúsculas, así que mezclaba `Ventas` con `VENTAS`, y el `_` de un código hacía de comodín.
             ->addFilterSelectWhere('grupo', $this->opcionesDeGrupo())
             // La lista tiene una fila por usuario × página, con acceso o sin él, así que este filtro es el
             // que decide qué se ve. ARRANCA en «sí» —la opción 0 es la que aplica `SelectWhereFilter` sin
@@ -464,7 +466,7 @@ class AdminPermisos extends PanelController
         foreach ($this->rolesConAccesos() as $rol) {
             $opciones[] = [
                 'label' => $rol['description'],
-                'where' => [Where::like('e.roles_cercado', '%,' . $rol['code'] . ',%')],
+                'where' => [Where::gt(Motor::posicion('e.roles_cercado', ',' . $rol['code'] . ','), 0)],
             ];
         }
 

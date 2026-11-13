@@ -134,9 +134,15 @@ el punto a controlar llama a `PermisoEspecial::exigir(MiPermiso::class)`.
 La forja prueba cada plugin en los dos, y la 1.06 se rechazó por fallar en PostgreSQL.
 
 - **Lo que se escribe distinto vive sólo en `Lib/Motor`**: la comparación que distingue mayúsculas
-  (`BINARY` en MySQL/MariaDB, nada en PostgreSQL) y la lista agregada (`GROUP_CONCAT` / `STRING_AGG`). El
+  (`BINARY` en MySQL/MariaDB, nada en PostgreSQL), la búsqueda exacta de un texto dentro de otro
+  (`LOCATE` binario / `STRPOS`) y la lista agregada (`GROUP_CONCAT` / `STRING_AGG`). El
   resto del SQL es común: no añadas otra rama por motor fuera de ahí.
 - **Textos con comilla simple**: con comillas dobles PostgreSQL lee un identificador.
+- **Buscar un código dentro de una lista no se hace con `Where::like`**: pone `LOWER()` a los dos lados y
+  el `_` de un `codrole` hace de comodín. Va con `Where::gt(Motor::posicion(…), 0)`, que es exacta en los
+  dos motores; el core deja pasar la expresión porque lleva paréntesis. El caso de las mayúsculas sólo se
+  ejecuta donde la colación deja convivir `Ventas` y `VENTAS`; en una MariaDB con la del instalador se
+  salta, y lo vigila `testLaPosicionEsExacta` sobre literales.
 - **Los booleanos del core no se comparan con enteros ni se agregan crudos**: `u.admin = 1` y
   `MAX(ra.allowupdate)` fallan en PostgreSQL. Van como `= TRUE`/`= FALSE` y `CASE … THEN 1 ELSE 0 END`.
   Leídos en crudo (`DbQuery`, un campo de `JoinModel` sin convertir) llegan como `'t'`/`'f'`, y `'f'` es

@@ -102,6 +102,54 @@ final class DosMotoresTest extends TestCase
 
     /**
      * @description
+     * **El filtro de grupo distingue mayúsculas.** `Ventas` y `VENTAS` son roles distintos donde la base los
+     * deja convivir —siempre en PostgreSQL; en MySQL/MariaDB sólo con una colación que distinga, como
+     * `utf8_bin`—, y elegir uno no puede traer las filas del otro. Con la colación del instalador actual
+     * (`utf8mb4_unicode_520_ci`) la clave primaria no los deja convivir, y el caso se salta diciéndolo.
+     */
+    public function testElFiltroDeGrupoDistingueMayusculas(): void
+    {
+        $mayus = $this->rol('okomotorrolC');
+        // se mide ANTES de crear el otro: con una colación que no distingue, `save()` encontraría éste por
+        // la clave y lo actualizaría en vez de insertar uno nuevo
+        if ((new Role())->loadFromCode('okomotorrolc')) {
+            $this->markTestSkipped('la colación de esta base no distingue mayúsculas en `roles.codrole`'
+                . ' (`okomotorrolc` encuentra `okomotorrolC`): dos roles así no pueden convivir aquí');
+        }
+
+        $this->accesos($this->rol('okomotorrolc'), ['EditOkoPermisosPruebaMinus' => false]);
+        $this->accesos($mayus, ['EditOkoPermisosPruebaMayus' => false]);
+        $this->usuario('okomotor1', false);
+        $this->asignar('okomotor1', 'okomotorrolC');
+        $this->asignar('okomotor1', 'okomotorrolc');
+
+        $this->assertSame(['EditOkoPermisosPruebaMayus'], $this->paginasDelGrupo('okomotorrolC', 'okomotor1'));
+        $this->assertSame(['EditOkoPermisosPruebaMinus'], $this->paginasDelGrupo('okomotorrolc', 'okomotor1'));
+    }
+
+    /**
+     * @description
+     * **El filtro de grupo no toma el `_` de un código por un comodín.** Un `codrole` admite `_`, y en un
+     * `LIKE` casa con cualquier carácter: elegir `okomotorrol_b` traía también las filas de `okomotorrolxb`.
+     * Y `okomotorrol_bb` empieza igual: sin las comas del cercado, también entraría.
+     */
+    public function testElFiltroDeGrupoNoTomaElGuionBajoPorComodin(): void
+    {
+        $this->accesos($this->rol('okomotorrol_b'), ['EditOkoPermisosPruebaGuion' => false]);
+        $this->accesos($this->rol('okomotorrolxb'), ['EditOkoPermisosPruebaEquis' => false]);
+        $this->accesos($this->rol('okomotorrol_bb'), ['EditOkoPermisosPruebaDoble' => false]);
+        $this->usuario('okomotor1', false);
+        foreach (['okomotorrol_b', 'okomotorrolxb', 'okomotorrol_bb'] as $codrole) {
+            $this->asignar('okomotor1', $codrole);
+        }
+
+        $this->assertSame(['EditOkoPermisosPruebaGuion'], $this->paginasDelGrupo('okomotorrol_b', 'okomotor1'));
+        $this->assertSame(['EditOkoPermisosPruebaEquis'], $this->paginasDelGrupo('okomotorrolxb', 'okomotor1'),
+            'control positivo: el otro rol sólo trae lo suyo');
+    }
+
+    /**
+     * @description
      * **El impacto lista a quienes lo perderían, ordenados, y no a quien lo tiene por otro rol.** Los
      * usuarios se siembran fuera de orden y el del medio conserva el acceso: la lista exacta es la de los
      * otros dos, separados por comas.
@@ -173,6 +221,28 @@ final class DosMotoresTest extends TestCase
         $descripciones = array_column((new AdminPermisos('AdminPermisos'))->usuarios(), 'description', 'code');
         $this->assertSame('okomotor1 (admin)', $descripciones['okomotor1']);
         $this->assertSame('okomotor2', $descripciones['okomotor2']);
+    }
+
+    /**
+     * @description
+     * **`Motor::posicion()` es exacta en los dos motores, sea cual sea la colación.** Va sobre literales, así
+     * que se ejerce también en una base cuya colación no distingue mayúsculas, donde el caso de los roles
+     * `okomotorrolC`/`okomotorrolc` se salta: es lo que vigila la rama de MySQL/MariaDB.
+     */
+    public function testLaPosicionEsExacta(): void
+    {
+        $db = new DataBase();
+        $db->connect();
+        $casos = [
+            ['Ventas,VENTAS', 'VENTAS', 8, 'control positivo: la encuentra, y en su sitio'],
+            ['Ventas', 'VENTAS', 0, 'distingue mayúsculas'],
+            ['aXb', 'a_b', 0, 'el _ no es un comodín'],
+            ['a%b', 'a%b', 1, 'el % vale literalmente'],
+        ];
+        foreach ($casos as [$donde, $que, $esperada, $mensaje]) {
+            $filas = $db->select('SELECT ' . Motor::posicion(Motor::texto($donde), $que) . ' AS p');
+            $this->assertSame($esperada, (int)($filas[0]['p'] ?? -1), $mensaje);
+        }
     }
 
     /**
@@ -277,6 +347,24 @@ final class DosMotoresTest extends TestCase
         $filas = PermisoEfectivo::all([Where::eq('e.nick', $nick), Where::eq('e.pagename', $pagina)]);
         $this->assertCount(1, $filas, 'no hay fila para ' . $nick . ' en ' . $pagina);
         return $filas[0];
+    }
+
+    /**
+     * Las páginas de `$nick` que deja pasar la opción del filtro de grupo de ese rol, tal como la arma el
+     * panel: se toma su `Where` de `opcionesDeGrupo()` y no una copia.
+     */
+    private function paginasDelGrupo(string $codrole, string $nick): array
+    {
+        $metodo = new \ReflectionMethod(AdminPermisos::class, 'opcionesDeGrupo');
+        $metodo->setAccessible(true);
+        $deEseRol = array_values(array_filter($metodo->invoke(new AdminPermisos('AdminPermisos')),
+            static fn (array $opcion): bool => str_ends_with($opcion['label'], '— ' . $codrole)));
+        $this->assertCount(1, $deEseRol, 'el filtro no ofrece una opción para ' . $codrole);
+
+        $where = array_merge($deEseRol[0]['where'], [Where::eq('e.nick', $nick), Where::eq('e.tiene_acceso', 1)]);
+        $paginas = array_map(static fn ($f) => $f->pagina, PermisoEfectivo::all($where));
+        sort($paginas);
+        return $paginas;
     }
 
     /** Las de `List` son de menú, como las deja el deploy; las demás, fichas. */

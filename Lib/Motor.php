@@ -37,6 +37,9 @@ use FacturaScripts\Core\Tools;
  *   `utf8mb4_unicode_520_ci` en las bases nuevas, que no distingue, y `utf8_bin` en las antiguas, que sí.
  *   `BINARY` hace que distinga en las dos. En PostgreSQL ya distingue, y `BINARY` no existe.
  * - **Juntar valores en una lista.** `GROUP_CONCAT` es de MySQL/MariaDB; PostgreSQL tiene `STRING_AGG`.
+ * - **Buscar un texto exacto dentro de otro.** `LIKE` no sirve: `Where::like` pone `LOWER()` a los dos lados
+ *   y el `_` hace de comodín. `LOCATE` con el texto en binario en MySQL/MariaDB y `STRPOS` en PostgreSQL
+ *   distinguen mayúsculas y no tienen comodines.
  */
 class Motor
 {
@@ -56,6 +59,19 @@ class Motor
         return self::esPostgresql()
             ? 'STRING_AGG(DISTINCT ' . $expresion . ", ',' ORDER BY " . $expresion . ')'
             : 'GROUP_CONCAT(DISTINCT ' . $expresion . ' ORDER BY ' . $expresion . ')';
+    }
+
+    /**
+     * La posición de `texto` dentro de `expresion`, contando desde 1, o 0 si no está: distinguiendo
+     * mayúsculas y sin comodines. Se usa como campo de un `Where` (`Where::gt(Motor::posicion(…), 0)`): el
+     * core no escapa un campo con paréntesis. Por lo mismo, ni la expresión ni el texto pueden llevar `|`,
+     * que es el separador de campos de `Where`.
+     */
+    public static function posicion(string $expresion, string $texto): string
+    {
+        return self::esPostgresql()
+            ? 'STRPOS(' . $expresion . ', ' . self::texto($texto) . ')'
+            : 'LOCATE(CAST(' . self::texto($texto) . ' AS BINARY), ' . $expresion . ')';
     }
 
     /** Un texto como literal SQL: entre comillas simples y escapado por el motor. */
