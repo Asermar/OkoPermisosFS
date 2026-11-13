@@ -81,6 +81,27 @@ final class DosMotoresTest extends TestCase
 
     /**
      * @description
+     * **El filtro «sólo menú / sólo fichas» separa por `pages.showonmenu`**, que es booleano. El filtro lo
+     * compara con el entero 1 o 0: `var2str` lo escribe entre comillas, y PostgreSQL acepta '1' como
+     * booleano, pero no lo probaba ningún caso en ningún motor.
+     */
+    public function testElFiltroDeMenuSeparaListasDeFichas(): void
+    {
+        $admin = $this->usuario('okomotor1', true);
+        $this->pagina('ListOkoPermisosPruebaMotor');
+        $this->pagina('EditOkoPermisosPruebaMotor');
+
+        foreach (['1' => 'ListOkoPermisosPruebaMotor', '2' => 'EditOkoPermisosPruebaMotor'] as $opcion => $esperada) {
+            Tools::log()::clear();
+            $vista = $this->ejecutar($admin, ['activetab' => 'ListPermisoEfectivo', 'filternick' => 'okomotor1',
+                'query' => 'OkoPermisosPruebaMotor', 'filteren_el_menu' => $opcion])->views['ListPermisoEfectivo'];
+            $this->assertSame([], Tools::log()::read('', ['critical', 'error']), 'opción ' . $opcion);
+            $this->assertSame([$esperada], array_map(static fn ($f) => $f->pagina, $vista->cursor), 'opción ' . $opcion);
+        }
+    }
+
+    /**
+     * @description
      * **El impacto lista a quienes lo perderían, ordenados, y no a quien lo tiene por otro rol.** Los
      * usuarios se siembran fuera de orden y el del medio conserva el acceso: la lista exacta es la de los
      * otros dos, separados por comas.
