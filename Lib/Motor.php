@@ -33,8 +33,9 @@ use FacturaScripts\Core\Tools;
  * core con `Tools::config('db_type')`:
  *
  * - **Comparar distinguiendo mayúsculas.** En MySQL/MariaDB la comparación sigue la colación de la
- *   columna, que en FacturaScripts no distingue, así que hace falta `BINARY`. En PostgreSQL ya distingue,
- *   y `BINARY` no existe.
+ *   columna, que es de la instalación (`FS_MYSQL_COLLATE`): el instalador del core pone
+ *   `utf8mb4_unicode_520_ci` en las bases nuevas, que no distingue, y `utf8_bin` en las antiguas, que sí.
+ *   `BINARY` hace que distinga en las dos. En PostgreSQL ya distingue, y `BINARY` no existe.
  * - **Juntar valores en una lista.** `GROUP_CONCAT` es de MySQL/MariaDB; PostgreSQL tiene `STRING_AGG`.
  */
 class Motor
