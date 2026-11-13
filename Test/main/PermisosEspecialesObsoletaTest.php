@@ -329,13 +329,16 @@ final class PermisosEspecialesObsoletaTest extends TestCase
         return $total;
     }
 
-    /** Las consultas del freno a `logs` que ha apuntado `DataBase` en `MiniLog`, contando las repetidas. */
+    /**
+     * Las consultas del freno a `logs` que ha apuntado `DataBase` en `MiniLog`, contando las repetidas. El
+     * nombre de la tabla va con la comilla del motor: invertida en MySQL/MariaDB, doble en PostgreSQL.
+     */
     private function consultasALogs(): int
     {
         $total = 0;
         foreach (MiniLog::read(DataBase::CHANNEL, ['debug']) as $entrada) {
             $sql = $entrada['original'];
-            if (preg_match('/^SELECT COUNT\(.*\bFROM `?logs`? WHERE/i', $sql) && str_contains($sql, PermisosEspeciales::CANAL)) {
+            if (preg_match('/^SELECT COUNT\(.*\bFROM [`"]?logs[`"]? WHERE/i', $sql) && str_contains($sql, PermisosEspeciales::CANAL)) {
                 $total += $entrada['count'];
             }
         }

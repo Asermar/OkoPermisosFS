@@ -45,6 +45,7 @@
     "okopermisos-puede-importar": "Puede importar",
     "okopermisos-quienes": "Quiénes",
     "okopermisos-rol": "Rol",
+    "okopermisos-rol-no-valido": "El rol «%codrole%» tiene un código que FacturaScripts no admite y no se ofrece en el filtro por grupo. Corrige su código desde la base de datos.",
     "okopermisos-roles": "Se lo conceden",
     "okopermisos-solo-fichas": "Sólo las NO visibles (fichas)",
     "okopermisos-solo-lo-suyo": "Sólo lo suyo",
